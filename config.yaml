@@ -1,0 +1,6 @@
+---
+# 启动模式：server服务端，client客户端
+mode: server
+server:
+
+client:

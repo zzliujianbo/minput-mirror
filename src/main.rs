@@ -1,5 +1,5 @@
-use minput_mirror::{dev, net};
+use minput_mirror::start;
 
 fn main() {
-    println!("Hello, world!");
+    start();
 }
