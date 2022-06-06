@@ -2,5 +2,8 @@
 # 启动模式：server服务端，client客户端
 mode: server
 server:
-
+  ip: 127.0.0.1
+  port: 48899
 client:
+  server_ip: 127.0.0.1
+  server_port: 48899
