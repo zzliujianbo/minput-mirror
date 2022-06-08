@@ -1,6 +1,6 @@
 use env_logger::{fmt::Color, Builder, Env};
 use lazy_static::lazy_static;
-use log::info;
+use log::{error, info};
 use rdev::display_size;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
@@ -98,24 +98,22 @@ fn get_display() -> Display {
 
 ///启动服务
 fn start_service() {
-    match CONFIG.mode.as_str() {
-        "server" => {
-            dev::server::start();
-        }
-        "client" => {
-            dev::client::start();
-        }
+    let result = match CONFIG.mode.as_str() {
+        "server" => dev::server::start(),
+        "client" => dev::client::start(),
         _ => {
             panic!("配置文件mode错误(允许值：server/client)");
         }
-    }
+    };
 
-    info!("start {} success", CONFIG.mode);
+    if let Err(e) = result {
+        error!("异常退出：{}", e);
+    }
 }
 
 pub fn start() {
     init_logger();
-    info!("read config: {:#?}", *CONFIG);
-    info!("display: {:#?}", *DISPLAY);
+    info!("config info: {:#?}", *CONFIG);
+    info!("display info: {:#?}", *DISPLAY);
     start_service();
 }
