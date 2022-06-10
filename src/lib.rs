@@ -116,4 +116,5 @@ pub fn start() {
     info!("config info: {:#?}", *CONFIG);
     info!("display info: {:#?}", *DISPLAY);
     start_service();
+    info!("exit");
 }

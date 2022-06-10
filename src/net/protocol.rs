@@ -11,6 +11,47 @@ pub struct Protocol {
     pub event: Event,
 }
 
+impl Protocol {
+    pub fn to_arr(&self) -> [u8; 19] {
+        let mut buf = [0u8; 19];
+        let (flag, arr) = buf.split_at_mut(1);
+        let (key_mouse, event) = arr.split_at_mut(1);
+        flag[0] = (&self.flag).into();
+        key_mouse[0] = (&self.key_mouse).into();
+        let e: [u8; 17] = (&self.event).into();
+        event.copy_from_slice(&e);
+        buf
+    }
+}
+
+impl From<rdev::Event> for Protocol {
+    fn from(e: rdev::Event) -> Self {
+        e.event_type.into()
+    }
+}
+
+impl From<EventType> for Protocol {
+    fn from(et: EventType) -> Self {
+        //Protocol { flag: Flag::KeyMouse, key_mouse: , event: () }
+        let (key_mouse, event) = match et {
+            EventType::KeyPress(k) => (k.into(), Event::Press),
+            EventType::KeyRelease(k) => (k.into(), Event::Release),
+            EventType::ButtonPress(b) => (b.into(), Event::Press),
+            EventType::ButtonRelease(b) => (b.into(), Event::Release),
+            EventType::MouseMove { x, y } => (KeyMouse::MouseMove, Event::Move(x, y)),
+            EventType::Wheel { delta_x, delta_y } => (
+                KeyMouse::MouseMiddle,
+                Event::Move(delta_x as f64, delta_y as f64),
+            ),
+        };
+        Self {
+            flag: Flag::KeyMouse,
+            key_mouse,
+            event,
+        }
+    }
+}
+
 macro_rules! from_u8 {
     ($type:ident, $($key:ident = $code:literal),*) => {
 
@@ -28,8 +69,8 @@ macro_rules! from_u8 {
             }
         }
 
-        impl From<$type> for u8 {
-            fn from(value: $type) -> Self {
+        impl From<&$type> for u8 {
+            fn from(value: &$type) -> Self {
                 match value {
                     $(
                         $type::$key => $code,
@@ -187,6 +228,7 @@ pub enum KeyMouse {
     Kp9,
     KpDelete,
     Function,
+    MouseMove,
     MouseLeft,
     MouseRight,
     MouseMiddle,
@@ -303,6 +345,7 @@ from_u8!(
     Kp9 = 0x69,
     //KpDelete = 0x53,
     //Function = 0x3A,
+    MouseMove = 0x07,
     MouseLeft = 0x01,
     MouseRight = 0x02,
     MouseMiddle = 0x04
@@ -454,12 +497,43 @@ impl From<u8> for Event {
     }
 }
 
-impl From<Event> for u8 {
-    fn from(v: Event) -> Self {
+impl From<&Event> for [u8; 17] {
+    fn from(v: &Event) -> Self {
+        let mut buf = [0u8; 17];
+        let (flag, xy) = buf.split_at_mut(1);
+        let (x, y) = xy.split_at_mut(8);
         match v {
-            Event::Press => 0x01,
-            Event::Release => 0x02,
-            Event::Move(_, _) => 0x03,
-        }
+            Event::Press => flag[0] = 0x01,
+            Event::Release => flag[0] = 0x02,
+            //TODO 需要实现将数据转换为x、y轴偏移数据
+            Event::Move(xf, yf) => {
+                flag[0] = 0x03;
+                x.copy_from_slice(&xf.to_be_bytes());
+                y.copy_from_slice(&yf.to_be_bytes());
+            }
+        };
+        buf
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Event, Flag, KeyMouse, Protocol};
+
+    #[test]
+    fn test_protocol_to_u8() {
+        let p = Protocol {
+            flag: Flag::KeyMouse,
+            key_mouse: KeyMouse::MouseMove,
+            event: Event::Move(0.1, 0.1),
+        };
+        let buf: [u8; 19] = p.to_arr();
+        assert_eq!(
+            buf,
+            [
+                0x01, 0x07, 0x03, 0x3F, 0xB9, 0x99, 0x99, 0x99, 0x99, 0x99, 0x9A, 0x3F, 0xB9, 0x99,
+                0x99, 0x99, 0x99, 0x99, 0x9A,
+            ]
+        );
     }
 }
