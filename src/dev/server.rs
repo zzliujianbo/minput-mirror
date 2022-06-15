@@ -26,7 +26,7 @@ pub fn start() -> Result<()> {
         udp.send(event.into())
             .unwrap_or_else(|e| warn!("send event error: {:?}", e));
     };
-
+    info!("start server success");
     if let Err(error) = listen(handle_event) {
         panic!("监听鼠标键盘失败: {:?}", error);
     }
