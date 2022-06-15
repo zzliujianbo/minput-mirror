@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::{debug, info, warn};
 use std::{net::UdpSocket, sync::Arc, thread};
 
-use super::protocol::Protocol;
+use super::protocol::{Protocol, PROTOCOL_LEN};
 
 pub struct UdpServer {
     socket: Arc<UdpSocket>,
@@ -33,15 +33,19 @@ pub fn start(ip: &str, port: u16) -> Result<UdpServer> {
         // max 1472 bytes, mtu(1500) - udp header(8) - ip header(20) = 1472
         //每次传输报文控制在最大1472字节，防止分片传输
         //每次接收512字节，最长不超过512
-        let mut buf = [0u8; 1];
+        let mut buf = [0u8; PROTOCOL_LEN];
         let recv = socket.recv_from(&mut buf);
         if let Ok((len, addr)) = recv {
-            debug!("recv from {:?}, {:?}", addr.ip(), addr.port());
+            let protocol = Protocol::from(&buf[..]);
+            debug!(
+                "recv from {:?}, {:?}, {:?}",
+                addr.ip(),
+                addr.port(),
+                protocol
+            );
         } else {
             warn!("接收数据错误: {:?}", recv);
         }
-        //let (len, addr) = udp.socket.recv_from(&mut buf)?;
-        //let protocol = Protocol::from_arr(&buf[..len]);
     });
     Ok(udp)
 }

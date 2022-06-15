@@ -1,7 +1,10 @@
 use log::warn;
 use rdev::{Button, EventType, Key};
 
+pub const PROTOCOL_LEN: usize = 19;
+
 /// 通信协议
+#[derive(Debug)]
 pub struct Protocol {
     /// 标记
     pub flag: Flag,
@@ -12,8 +15,8 @@ pub struct Protocol {
 }
 
 impl Protocol {
-    pub fn to_arr(&self) -> [u8; 19] {
-        let mut buf = [0u8; 19];
+    pub fn to_arr(&self) -> [u8; PROTOCOL_LEN] {
+        let mut buf = [0u8; PROTOCOL_LEN];
         let (flag, arr) = buf.split_at_mut(1);
         let (key_mouse, event) = arr.split_at_mut(1);
         flag[0] = (&self.flag).into();
@@ -46,6 +49,32 @@ impl From<EventType> for Protocol {
         };
         Self {
             flag: Flag::KeyMouse,
+            key_mouse,
+            event,
+        }
+    }
+}
+
+impl From<&[u8]> for Protocol {
+    fn from(buf: &[u8]) -> Self {
+        let flag = if buf.len() > 0 {
+            Flag::from(buf[0])
+        } else {
+            Flag::Unknown
+        };
+        let key_mouse = if buf.len() > 1 {
+            KeyMouse::from(buf[1])
+        } else {
+            KeyMouse::Unknown
+        };
+        let event = if buf.len() == PROTOCOL_LEN {
+            //Event::from(&buf[2..])
+            Event::Unknown
+        } else {
+            Event::Unknown
+        };
+        Protocol {
+            flag,
             key_mouse,
             event,
         }
@@ -111,12 +140,19 @@ pub enum Flag {
     KeyMouse,
     /// 0x02复制粘贴
     CopyPaste,
+    /// 0x03客户端初始化连接
+    ClientInitConnection,
     /// 0x00未知数据
     Unknown,
 }
 
 // 十六进制映射
-from_u8!(Flag, KeyMouse = 0x01, CopyPaste = 0x02);
+from_u8!(
+    Flag,
+    KeyMouse = 0x01,
+    CopyPaste = 0x02,
+    ClientInitConnection = 0x03
+);
 
 /// 鼠标键盘
 #[derive(Debug)]
@@ -475,6 +511,7 @@ impl From<Button> for KeyMouse {
 }
 
 /// 鼠标键盘事件
+#[derive(Debug)]
 pub enum Event {
     /// 0x01按下按钮事件
     Press,
@@ -483,16 +520,30 @@ pub enum Event {
     /// 0x03移动事件
     /// 鼠标、滚轮x轴、y轴偏移
     Move(f64, f64),
+    /// 0x00未知数据
+    Unknown,
 }
 
-impl From<u8> for Event {
-    fn from(v: u8) -> Self {
-        match v {
-            0x01 => Event::Press,
-            0x02 => Event::Release,
-            //TODO 需要实现将数据转换为x、y轴偏移数据
-            0x03 => Event::Move(0.0, 0.0),
-            _ => panic!("unknown event value: {}", v),
+impl From<&[u8]> for Event {
+    fn from(v: &[u8]) -> Self {
+        if v.len() > 0 {
+            match v[0] {
+                0x01 => Event::Press,
+                0x02 => Event::Release,
+                0x03 => {
+                    if v.len() == PROTOCOL_LEN - 2 {
+                        //转换为x、y轴偏移数据
+                        let x = f64::from_be_bytes(v[1..8].try_into().unwrap_or_default());
+                        let y = f64::from_be_bytes(v[9..16].try_into().unwrap_or_default());
+                        Event::Move(x, y)
+                    } else {
+                        Event::Unknown
+                    }
+                }
+                _ => Event::Unknown,
+            }
+        } else {
+            Event::Unknown
         }
     }
 }
@@ -511,6 +562,7 @@ impl From<&Event> for [u8; 17] {
                 x.copy_from_slice(&xf.to_be_bytes());
                 y.copy_from_slice(&yf.to_be_bytes());
             }
+            Event::Unknown => flag[0] = 0x00,
         };
         buf
     }
@@ -518,7 +570,7 @@ impl From<&Event> for [u8; 17] {
 
 #[cfg(test)]
 mod test {
-    use super::{Event, Flag, KeyMouse, Protocol};
+    use super::{Event, Flag, KeyMouse, Protocol, PROTOCOL_LEN};
 
     #[test]
     fn test_protocol_to_u8() {
@@ -527,7 +579,7 @@ mod test {
             key_mouse: KeyMouse::MouseMove,
             event: Event::Move(0.1, 0.1),
         };
-        let buf: [u8; 19] = p.to_arr();
+        let buf: [u8; PROTOCOL_LEN] = p.to_arr();
         assert_eq!(
             buf,
             [
