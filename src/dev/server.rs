@@ -12,9 +12,12 @@ pub fn start() -> Result<()> {
 
     server::start(server_config.ip.as_str(), server_config.port, rx)?;
 
-    let handle_event = move |event: Event| {
-        tx.send(event)
-            .unwrap_or_else(|e| warn!("send event error: {:?}", e));
+    let handle_event = move |event: Event| match event.event_type {
+        rdev::EventType::KeyPress(_) => {
+            tx.send(event)
+                .unwrap_or_else(|e| warn!("send event error: {:?}", e));
+        }
+        _ => {}
     };
     info!("start server success");
     if let Err(error) = listen(handle_event) {

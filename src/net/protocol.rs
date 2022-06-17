@@ -15,7 +15,7 @@ pub struct Protocol {
 }
 
 impl Protocol {
-    pub fn to_arr(&self) -> [u8; PROTOCOL_LEN] {
+    pub fn to_arr(self) -> [u8; PROTOCOL_LEN] {
         let mut buf = [0u8; PROTOCOL_LEN];
         let (flag, arr) = buf.split_at_mut(1);
         let (key_mouse, event) = arr.split_at_mut(1);
