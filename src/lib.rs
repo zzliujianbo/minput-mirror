@@ -30,10 +30,26 @@ pub struct ConfigServer {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConfigClient {
+    /// 客户端名字
+    pub name: String,
     ///服务器地址
     pub server_ip: String,
     ///服务器端口
     pub server_port: u16,
+    /// 客户端所在服务器显示器方向
+    pub direction: ConfigClientDirection,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum ConfigClientDirection {
+    #[serde(rename = "left")]
+    Left,
+    #[serde(rename = "right")]
+    Right,
+    #[serde(rename = "up")]
+    Up,
+    #[serde(rename = "down")]
+    Down,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -13,15 +13,12 @@ use crate::{net::protocol::Flag, DISPLAY};
 use super::protocol::{Protocol, PROTOCOL_LEN};
 
 lazy_static! {
-    static ref ACTIVE_CLIENT: Option<SocketAddr> = None;
-    static ref CLIENTS: Arc<RwLock<Vec<SocketAddr>>> = Arc::new(RwLock::new(vec![]));
+    static ref ACTIVE_CLIENT: RwLock<Option<SocketAddr>> = RwLock::new(None);
+    static ref CLIENTS: RwLock<Vec<SocketAddr>> = RwLock::new(vec![]);
 }
 
 pub struct UdpServer {
-    //socket: Arc<UdpSocket>,
     socket: Arc<UdpSocket>,
-    active_client: Option<SocketAddr>,
-    clients: Vec<SocketAddr>,
 }
 
 impl UdpServer {
@@ -30,16 +27,15 @@ impl UdpServer {
         debug!("UdpSocket bind to {}:{}", ip, port);
         Ok(Self {
             socket: Arc::new(socket),
-            clients: vec![],
-            active_client: None,
         })
     }
 
-    pub fn send(&self, protocol: Protocol, client: &SocketAddr) -> Result<()> {
-        //TODO
-        //self.socket.send(protocol.into())?;
-        //self.socket.send(&protocol.to_arr());
-        self.socket.send_to(&protocol.to_arr(), client)?;
+    pub fn send(&self, protocol: Protocol) -> Result<()> {
+        //if let Ok(client) = ACTIVE_CLIENT.read() {
+        //    if client.is_some() {
+        //        self.socket.send_to(&protocol.to_arr(), client.unwrap())?;
+        //    }
+        //}
         Ok(())
     }
 }
@@ -49,22 +45,15 @@ pub fn start(ip: &str, port: u16, rx: Receiver<Event>) -> Result<()> {
     let udp_clone = udp.clone();
     thread::spawn(move || {
         for event in rx.iter() {
-            debug!("event: {:?}", event);
             match event.event_type {
-                EventType::KeyPress(k) => {
-                    debug!("key down: {:?}", k);
-                    //udp_clone.send(protocol)?;
-                    let client = active_client(0_f64, 0_f64);
-                    if let Some(client) = client {
-                        //let protocol = Protocol::new(Flag::MouseMove, x, y);
-                        udp.send(event.into(), &client);
-                    }
-                }
                 EventType::MouseMove { x, y } => {
-                    //debug!("mouse move: ({}, {})", x, y);
-                    //udp_clone.send(protocol)?;
+                    //active_client(x, y);
                 }
                 _ => {}
+            }
+            let result = udp.send(event.into());
+            if result.is_err() {
+                error!("send event error: {:?}", result);
             }
         }
     });
@@ -75,7 +64,7 @@ pub fn start(ip: &str, port: u16, rx: Receiver<Event>) -> Result<()> {
         let mut buf = [0u8; PROTOCOL_LEN];
         //let recv = udp_clone.socket.recv_from(&mut buf);
         let recv = udp_clone.socket.recv_from(&mut buf);
-        if let Ok((len, addr)) = recv {
+        if let Ok((_, addr)) = recv {
             let protocol = Protocol::from(&buf[..]);
             debug!(
                 "recv from {:?}, {:?}, {:?}",
@@ -85,7 +74,7 @@ pub fn start(ip: &str, port: u16, rx: Receiver<Event>) -> Result<()> {
             );
             match protocol.flag {
                 Flag::ClientInitConnection => {
-                    info!("client connect: {}", addr);
+                    debug!("client connect: {}", addr);
                     if let Ok(mut clients) = CLIENTS.write() {
                         if clients.contains(&addr) {
                             warn!("client {} already exist", addr);
@@ -106,13 +95,4 @@ pub fn start(ip: &str, port: u16, rx: Receiver<Event>) -> Result<()> {
         }
     });
     Ok(())
-}
-
-pub fn active_client(x: f64, y: f64) -> Option<SocketAddr> {
-    if let Ok(clients) = CLIENTS.read() {
-        if clients.len() > 0 {
-            return Some(clients[0]);
-        }
-    }
-    None
 }

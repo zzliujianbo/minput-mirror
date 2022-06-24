@@ -1,9 +1,16 @@
 ---
 # 启动模式：server服务端，client客户端
+# server 鼠标物理所在PC，以服务器模式运行
+# client 无鼠标PC，需要镜像服务器端的鼠标键盘到此PC
 mode: server
 server:
   ip: 127.0.0.1
   port: 48899
 client:
+  # 客户端名字
+  name: test1
+  # 客户端连接哪个服务器
   server_ip: 127.0.0.1
   server_port: 48899
+  # 客户端在主屏幕的哪个方向
+  direction: right
