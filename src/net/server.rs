@@ -13,7 +13,7 @@ use crate::{net::protocol::Flag, DISPLAY};
 use super::protocol::{Protocol, PROTOCOL_LEN};
 
 lazy_static! {
-    static ref ACTIVE_CLIENT: RwLock<Option<SocketAddr>> = RwLock::new(None);
+    pub(crate) static ref ACTIVE_CLIENT: RwLock<Option<SocketAddr>> = RwLock::new(None);
     static ref CLIENTS: RwLock<Vec<SocketAddr>> = RwLock::new(vec![]);
 }
 
